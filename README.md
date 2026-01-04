@@ -14,3 +14,7 @@ Arcane Odyssey Tools by jhxu/amechanos. Use to your own discretion and read the 
 ## Contributing
 - Bug reports and pull requests are welcome.
 - Message me on discord: @jhxu for any suggestions
+
+## Known Issues
+- The program doesn't work with windowed Roblox. Make sure you are in fullscreen.
+- Try to zoom in to improve image detection, especially if reeling in doesn't work.
