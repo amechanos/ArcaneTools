@@ -122,89 +122,93 @@ def start_fishing():
         while not keyboard.is_pressed(stopHotkey):
             # 1. CLEANUP - Wait for UI to clear
             cleanup_attempts = 0
+            # Wait for catch UI to clear; if stuck attempt to close dialogs (ESC) a few times
             while find_on_screen(CATCH_IMAGES):
                 print("Waiting for UI to clear...", end="\r")
                 time.sleep(0.5)
                 cleanup_attempts += 1
-                
-                # Prevent infinite cleanup loop
-                if cleanup_attempts > 20:
-                    print("\n[Warning] UI not clearing, forcing continue...")
+
+                # Prevent infinite cleanup loop; if it keeps failing, skip this cast to avoid repeated casting
+                if cleanup_attempts > 40:
+                    print("\n[Warning] UI still not clearing after multiple attempts, skipping this cast to avoid repeated casting...")
+                    # Small delay to avoid immediate recast
+                    time.sleep(2)
                     break
 
             # 2. CAST
             print("\n[Action] Casting Line...")
-            w, h = pyautogui.size()
-            if not safe_click(w // 2, h // 2):
-                print("[ERROR] Failed to cast, retrying...")
-                time.sleep(1)
-                continue
-            
-            time.sleep(2.5)
 
-            # 3. WAIT FOR BITE 
-            print("[State] Watching for fish...")
-            hooked = False
-            start_wait = time.time()
-            
-            while not hooked:
-                if keyboard.is_pressed(stopHotkey):
-                    print("\n[Stop] User requested stop.")
-                    return
-                
-                # Safety: Recast if no bite in 60 seconds
-                if (time.time() - start_wait) > 60:
-                    print("\n[Timeout] No bite detected in 60s. Recasting...")
-                    break
-                
-                if find_on_screen(BITE_IMAGE, confidence=0.7): 
-                    hooked = True
-                    print("[Bite] Fish detected!")
-                
-                time.sleep(0.1)
-
-            if not hooked:
-                continue
-
-            # 4. REEL IN
-            print("[Action] Reeling in...")
-            reel_start = time.time()
-            click_count = 0
-            
-            while True:
-                if keyboard.is_pressed(stopHotkey):
-                    print("\n[Stop] User requested stop.")
-                    return
-                
+            # Double-check the catch UI isn't still visible before casting
+            if not find_on_screen(CATCH_IMAGES):
                 safe_click()
-                click_count += 1
-                time.sleep(random.uniform(0.05, 0.08))
+                w, h = pyautogui.size()
                 
-                # Check for catch every 5 clicks (reduce CPU load)
-                if click_count % 5 == 0:
-                    if find_on_screen(CATCH_IMAGES):
-                            SESSION_FISH += 1
-                            print(f"[🐟] Catch #{SESSION_FISH}! Time: {time.time() - reel_start:.1f}s")
-                            time.sleep(1)  # Brief pause after catch
+                time.sleep(2.5) 
 
-                            # Ensure rod is re-equipped: switch away then back, then optionally recast
-                            try:
-                                print("[Action] Re-equipping rod to ensure it's cast...")
-                                # Switch to a temporary slot, then switch back to the rod slot
-                                keyboard.press_and_release(temp_switch_slot)
-                                time.sleep(switch_delay)
-                                keyboard.press_and_release(fishingRodSlot)
-                                time.sleep(switch_delay)
+                # 3. WAIT FOR BITE 
+                print("[State] Watching for fish...")
+                hooked = False
+                start_wait = time.time()
+                
+                while not hooked:
+                    if keyboard.is_pressed(stopHotkey):
+                        print("\n[Stop] User requested stop.")
+                        return
+                    
+                    # Safety: Recast if no bite in 60 seconds
+                    if (time.time() - start_wait) > 60:
+                        print("\n[Timeout] No bite detected in 60s. Recasting...")
+                        break
+                    
+                    if find_on_screen(BITE_IMAGE, confidence=0.7): 
+                        hooked = True
+                        print("[Bite] Fish detected!")
 
-                            except Exception as e:
-                                print(f"[Warning] Failed to re-equip rod: {e}")
+                # 4. REEL IN
+                if hooked:
+                    print("[Action] Reeling in...")
+                    reel_start = time.time()
+                    click_count = 0
+                    
+                    while hooked:
+                        if keyboard.is_pressed(stopHotkey):
+                            print("\n[Stop] User requested stop.")
+                            return
+                        
+                        safe_click()
+                        click_count += 1
+                        time.sleep(random.uniform(0.05, 0.08))
+                        
+                        # Check for catch every 5 clicks (reduce CPU load)
+                        if click_count % 5 == 0:
+                            if find_on_screen(CATCH_IMAGES):
+                                    SESSION_FISH += 1
+                                    print(f"[🐟] Catch #{SESSION_FISH}! Time: {time.time() - reel_start:.1f}s")
+                                    hooked = False
+                                    time.sleep(2)  # Brief pause after catch
 
+                                    clear_start = time.time()
+
+                                    # Ensure rod is re-equipped: switch away then back, then optionally recast
+                                    try:
+                                        print("\n[Action] Re-equipping rod to ensure it's ready...")
+                                        # Switch to a temporary slot, then switch back to the rod slot
+                                        keyboard.press_and_release(temp_switch_slot)
+                                        time.sleep(switch_delay)
+                                        keyboard.press_and_release(fishingRodSlot)
+                                        time.sleep(switch_delay)
+                                        # Extra brief pause to avoid accidental immediate recast
+                                        time.sleep(1)
+
+                                    except Exception as e:
+                                        print(f"[Warning] Failed to re-equip rod: {e}")
+
+                                    break
+                        
+                        # Safety: Stop reeling after 60 seconds
+                        if (time.time() - reel_start) > 60:
+                            print("[Warning] Reel timeout. Moving to next cast...")
                             break
-                
-                # Safety: Stop reeling after 60 seconds
-                if (time.time() - reel_start) > 60:
-                    print("[Warning] Reel timeout. Moving to next cast...")
-                    break
 
     except KeyboardInterrupt:
         print("\n[Stop] Interrupted by user (Ctrl+C)")
