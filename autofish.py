@@ -42,8 +42,6 @@ fishingRodSlot = '6' # Default slot is 6, change if needed
 temp_switch_slot = '1'
 # Delay between slot switches (seconds)
 switch_delay = 0.12
-# Whether to perform an immediate cast after re-equipping the rod
-re_cast_after_equip = True
 
 CONFIDENCE_LEVEL = 0.8 
 SESSION_FISH = 0
@@ -196,19 +194,13 @@ def start_fishing():
                                 time.sleep(switch_delay)
                                 keyboard.press_and_release(fishingRodSlot)
                                 time.sleep(switch_delay)
-
-                                if re_cast_after_equip:
-                                    # Do an immediate cast (click center) so the rod is in cast state
-                                    w, h = pyautogui.size()
-                                    safe_click(w // 2, h // 2)
-                                    time.sleep(0.3)
                             except Exception as e:
                                 print(f"[Warning] Failed to re-equip rod: {e}")
 
                             break
                 
-                # Safety: Stop reeling after 30 seconds
-                if (time.time() - reel_start) > 30:
+                # Safety: Stop reeling after 60 seconds
+                if (time.time() - reel_start) > 60:
                     print("[Warning] Reel timeout. Moving to next cast...")
                     break
 
