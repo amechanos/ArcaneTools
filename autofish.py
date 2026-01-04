@@ -37,6 +37,13 @@ else:
 
 # CONFIG
 stopHotkey = 'q' # Unfortunately, the hotkey can only be a singular key/character due to keyboard library limitations. Shortcuts including shift or control will not work.
+fishingRodSlot = '6' # Default slot is 6, change if needed
+# Slot to temporarily switch to (switch away then back to re-equip the rod). Change if needed.
+temp_switch_slot = '1'
+# Delay between slot switches (seconds)
+switch_delay = 0.12
+# Whether to perform an immediate cast after re-equipping the rod
+re_cast_after_equip = True
 
 CONFIDENCE_LEVEL = 0.8 
 SESSION_FISH = 0
@@ -177,10 +184,28 @@ def start_fishing():
                 # Check for catch every 5 clicks (reduce CPU load)
                 if click_count % 5 == 0:
                     if find_on_screen(CATCH_IMAGES):
-                        SESSION_FISH += 1
-                        print(f"[🐟] Catch #{SESSION_FISH}! Time: {time.time() - reel_start:.1f}s")
-                        time.sleep(1)  # Brief pause after catch
-                        break
+                            SESSION_FISH += 1
+                            print(f"[🐟] Catch #{SESSION_FISH}! Time: {time.time() - reel_start:.1f}s")
+                            time.sleep(1)  # Brief pause after catch
+
+                            # Ensure rod is re-equipped: switch away then back, then optionally recast
+                            try:
+                                print("[Action] Re-equipping rod to ensure it's cast...")
+                                # Switch to a temporary slot, then switch back to the rod slot
+                                keyboard.press_and_release(temp_switch_slot)
+                                time.sleep(switch_delay)
+                                keyboard.press_and_release(fishingRodSlot)
+                                time.sleep(switch_delay)
+
+                                if re_cast_after_equip:
+                                    # Do an immediate cast (click center) so the rod is in cast state
+                                    w, h = pyautogui.size()
+                                    safe_click(w // 2, h // 2)
+                                    time.sleep(0.3)
+                            except Exception as e:
+                                print(f"[Warning] Failed to re-equip rod: {e}")
+
+                            break
                 
                 # Safety: Stop reeling after 30 seconds
                 if (time.time() - reel_start) > 30:
