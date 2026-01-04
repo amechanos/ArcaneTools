@@ -5,16 +5,38 @@ import random
 import os
 import sys
 
+# 1. This line finds exactly where your .py file is saved on the hard drive
+REF_FOLDER = "ref"
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# 2. This creates a rock-solid path to the 'ref' folder inside that directory
+def get_ref(filename):
+    return os.path.join(script_dir, REF_FOLDER, filename)
+
+# 3. Define the images using the helper function
+BITE_IMAGE = get_ref("start.png")
+CATCH_IMAGES = [
+    get_ref("junk.png"),
+    get_ref("treasure.png"),
+    get_ref("sunken.png"),
+    get_ref("fish.png")
+]
+
+# --- STARTUP CHECK ---
+print("Checking image files...")
+missing = []
+for img in [BITE_IMAGE] + CATCH_IMAGES:
+    if not os.path.exists(img):
+        missing.append(os.path.basename(img))
+
+if missing:
+    print(f"[ERROR] Still missing: {missing}")
+    print(f"Expected in: {REF_FOLDER}")
+else:
+    print("[SUCCESS] All images loaded.")
+
 # CONFIG
 stopHotkey = 'q' # Unfortunately, the hotkey can only be a singular key/character due to keyboard library limitations. Shortcuts including shift or control will not work.
-
-BITE_IMAGE = os.path.join('ref', 'start.png')
-CATCH_IMAGES = [
-    os.path.join('ref','junk.png'), 
-    os.path.join('ref','treasure.png'), 
-    os.path.join('ref','sunken.png'), 
-    os.path.join('ref','fish.png')
-]
 
 CONFIDENCE_LEVEL = 0.8 
 SESSION_FISH = 0
