@@ -5,6 +5,14 @@ import random
 import os
 import sys
 
+# Optional OpenCV/Numpy fallback for multi-scale/template matching
+try:
+    import cv2
+    import numpy as np
+    OPENCV_AVAILABLE = True
+except Exception:
+    OPENCV_AVAILABLE = False
+
 # 1. This line finds exactly where your .py file is saved on the hard drive
 REF_FOLDER = "ref"
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -69,18 +77,70 @@ def find_on_screen(image_list, confidence=CONFIDENCE_LEVEL):
     if isinstance(image_list, str):
         image_list = [image_list]
         
+    # Try a fast region-focused scan first (center area), then full-screen.
+    w, h = pyautogui.size()
+    # center region = center third of the screen
+    cx = max(0, w // 2 - w // 6)
+    cy = max(0, h // 2 - h // 6)
+    cw = max(10, w // 3)
+    ch = max(10, h // 3)
+
     for img in image_list:
         if not os.path.exists(img):
             continue
+
+        # 1) quick region scan (center)
         try:
-            location = pyautogui.locateOnScreen(img, confidence=confidence, grayscale=True)
-            if location:
-                return True
-        except pyautogui.ImageNotFoundException:
-            continue
+            try:
+                loc = pyautogui.locateOnScreen(img, confidence=confidence, region=(cx, cy, cw, ch), grayscale=True)
+                if loc:
+                    return True
+            except Exception:
+                # ignore and fall back to full screen / opencv
+                pass
+
+            # 2) full-screen builtin scan
+            try:
+                loc = pyautogui.locateOnScreen(img, confidence=confidence, grayscale=True)
+                if loc:
+                    return True
+            except Exception:
+                pass
+
+            # 3) OpenCV multi-scale fallback (more tolerant of size differences)
+            if OPENCV_AVAILABLE:
+                try:
+                    # take screenshot (region if smaller search makes sense)
+                    screen_img = pyautogui.screenshot()
+                    screen_gray = cv2.cvtColor(np.array(screen_img), cv2.COLOR_RGB2GRAY)
+
+                    template = cv2.imread(img, cv2.IMREAD_GRAYSCALE)
+                    if template is None:
+                        continue
+
+                    th, tw = template.shape[:2]
+                    # try a range of scales from smaller to larger
+                    scales = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2]
+                    for scale in scales:
+                        rw = int(tw * scale)
+                        rh = int(th * scale)
+                        if rw < 8 or rh < 8:
+                            continue
+                        if rw > screen_gray.shape[1] or rh > screen_gray.shape[0]:
+                            continue
+                        resized = cv2.resize(template, (rw, rh), interpolation=cv2.INTER_AREA)
+                        res = cv2.matchTemplate(screen_gray, resized, cv2.TM_CCOEFF_NORMED)
+                        _, max_val, _, _ = cv2.minMaxLoc(res)
+                        if max_val >= confidence:
+                            return True
+                except Exception:
+                    # if OpenCV fails for any reason, ignore and continue
+                    pass
+
         except Exception as e:
             print(f"[Warning] Error checking {img}: {e}")
             continue
+
     return False
 
 def safe_click(x=None, y=None):
